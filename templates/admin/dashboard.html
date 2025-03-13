@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4 class="card-title mb-0">Admin Dashboard</h4>
+    </div>
+    <div class="card-body">
+        <p>Welcome to the admin dashboard, {{ current_user.username }}!</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% endblock %}
