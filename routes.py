@@ -1,7 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from app import db
-from models import User
+from models import User, Subject, Chapter, Quiz, Question, QuizAttempt
+from datetime import datetime, timedelta
+from sqlalchemy import func, case, text
+from sqlalchemy.types import Float
 
 # Create blueprints with proper URL prefixes
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -93,7 +96,320 @@ def dashboard():
     if not current_user.is_admin:
         flash('Access denied. Admin privileges required.')
         return redirect(url_for('user.user_dashboard'))
-    return render_template('admin/dashboard.html')
+    
+     # Get all subjects (will show only 3 in template)
+    subjects = Subject.query.all()
+
+    return render_template('admin/dashboard.html', subjects=subjects)
+
+@admin_bp.route('/subjects')
+@login_required
+def subjects():
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+    subjects = Subject.query.all()
+    return render_template('admin/subjects.html', subjects=subjects)
+
+@admin_bp.route('/subject/add', methods=['GET', 'POST'])
+@login_required
+def add_subject():
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+
+        subject = Subject(name=name, description=description)
+        try:
+            db.session.add(subject)
+            db.session.commit()
+            flash('Subject added successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error adding subject', 'error')
+
+    return render_template('admin/add_subject.html')
+
+@admin_bp.route('/chapter/add/<int:subject_id>', methods=['GET', 'POST'])
+@login_required
+def add_chapter(subject_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    subject = Subject.query.get_or_404(subject_id)
+
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+
+        chapter = Chapter(name=name, description=description, subject_id=subject_id)
+        try:
+            db.session.add(chapter)
+            db.session.commit()
+            flash('Chapter added successfully!', 'success')
+            return redirect(url_for('admin.dashboard'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error adding chapter', 'error')
+
+    return render_template('admin/add_chapter.html', subject=subject)
+
+
+@admin_bp.route('/subject/<int:subject_id>')
+@login_required
+def view_subject(subject_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+    subject = Subject.query.get_or_404(subject_id)
+    return render_template('admin/view_subject.html', subject=subject)
+
+@admin_bp.route('/subject/edit/<int:subject_id>', methods=['GET', 'POST'])
+@login_required
+def edit_subject(subject_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    subject = Subject.query.get_or_404(subject_id)
+
+    if request.method == 'POST':
+        subject.name = request.form.get('name')
+        subject.description = request.form.get('description')
+        try:
+            db.session.commit()
+            flash('Subject updated successfully!', 'success')
+            return redirect(url_for('admin.view_subject', subject_id=subject.id))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating subject', 'error')
+
+    return render_template('admin/edit_subject.html', subject=subject)
+
+@admin_bp.route('/chapter/<int:chapter_id>')
+@login_required
+def view_chapter(chapter_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+    chapter = Chapter.query.get_or_404(chapter_id)
+    return render_template('admin/view_chapter.html', chapter=chapter)
+
+@admin_bp.route('/chapter/edit/<int:chapter_id>', methods=['GET', 'POST'])
+@login_required
+def edit_chapter(chapter_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    chapter = Chapter.query.get_or_404(chapter_id)
+
+    if request.method == 'POST':
+        chapter.name = request.form.get('name')
+        chapter.description = request.form.get('description')
+        try:
+            db.session.commit()
+            flash('Chapter updated successfully!', 'success')
+            return redirect(url_for('admin.view_chapter', chapter_id=chapter.id))
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating chapter', 'error')
+
+    return render_template('admin/edit_chapter.html', chapter=chapter)
+
+@admin_bp.route('/subject/delete/<int:subject_id>', methods=['POST'])
+@login_required
+def delete_subject(subject_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    try:
+        subject = Subject.query.get_or_404(subject_id)
+        db.session.delete(subject)
+        db.session.commit()
+        flash('Subject deleted successfully')
+        return '', 200
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting subject: {str(e)}')
+        return 'Error deleting subject', 500
+
+@admin_bp.route('/chapter/delete/<int:chapter_id>', methods=['POST'])
+@login_required
+def delete_chapter(chapter_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    try:
+        chapter = Chapter.query.get_or_404(chapter_id)
+        db.session.delete(chapter)
+        db.session.commit()
+        flash('Chapter deleted successfully')
+        return '', 200
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting chapter: {str(e)}')
+        return 'Error deleting chapter', 500
+
+@admin_bp.route('/quiz/manage/<int:chapter_id>')
+@login_required
+def manage_quiz(chapter_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+    chapter = Chapter.query.get_or_404(chapter_id)
+    return render_template('admin/quiz_management.html', chapter=chapter)
+
+@admin_bp.route('/quiz/add/<int:chapter_id>', methods=['POST'])
+@login_required
+def add_quiz(chapter_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    if request.method == 'POST':
+        try:
+            # Get quiz details from form
+            title = request.form.get('title')
+            start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+            duration = int(request.form.get('duration'))
+
+            # Set start time to beginning of day and end time to end of day
+            start_date = start_date.replace(hour=0, minute=0, second=0)
+            end_date = start_date.replace(hour=23, minute=59, second=59)
+
+            # Create quiz
+            quiz = Quiz(
+                title=title,
+                chapter_id=chapter_id,
+                duration=duration,
+                start_date=start_date,
+                end_date=end_date
+            )
+            db.session.add(quiz)
+            db.session.flush()  # Get quiz.id before committing
+
+            # Process questions
+            questions_data = {}
+            for key, value in request.form.items():
+                if key.startswith('questions['):
+                    parts = key.replace('questions[', '').replace(']', ' ').split()
+                    idx, field = parts[0], parts[1].replace('[', '').replace(']', '')
+
+                    if idx not in questions_data:
+                        questions_data[idx] = {}
+                    questions_data[idx][field] = value
+
+            # Create Question objects
+            for idx, q_data in questions_data.items():
+                if 'text' in q_data:  # Ensure we have complete question data
+                    question = Question(
+                        quiz_id=quiz.id,
+                        question_text=q_data['text'],
+                        option_a=q_data['option_a'],
+                        option_b=q_data['option_b'],
+                        option_c=q_data['option_c'],
+                        option_d=q_data['option_d'],
+                        correct_answer=q_data['correct']
+                    )
+                    db.session.add(question)
+
+            db.session.commit()
+            flash('Quiz created successfully!')
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating quiz: {str(e)}')
+
+        return redirect(url_for('admin.manage_quiz', chapter_id=chapter_id))
+
+@admin_bp.route('/quiz/edit/<int:quiz_id>')
+@login_required
+def edit_quiz(quiz_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+    quiz = Quiz.query.get_or_404(quiz_id)
+    return render_template('admin/edit_quiz.html', quiz=quiz)
+
+@admin_bp.route('/quiz/update/<int:quiz_id>', methods=['POST'])
+@login_required
+def update_quiz(quiz_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    quiz = Quiz.query.get_or_404(quiz_id)
+
+    try:
+        # Update quiz details
+        quiz.title = request.form.get('title')
+        start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+        quiz.duration = int(request.form.get('duration'))
+
+        # Set start time to beginning of day and end time to end of day
+        quiz.start_date = start_date.replace(hour=0, minute=0, second=0)
+        quiz.end_date = start_date.replace(hour=23, minute=59, second=59)
+
+        # Process questions
+        questions_data = {}
+        existing_question_ids = set()
+
+        # Collect form data
+        for key, value in request.form.items():
+            if key.startswith('questions['):
+                parts = key.replace('questions[', '').replace(']', ' ').split()
+                idx, field = parts[0], parts[1].replace('[', '').replace(']', '')
+
+                if idx not in questions_data:
+                    questions_data[idx] = {}
+                questions_data[idx][field] = value
+
+        # Update or create questions
+        for idx, q_data in questions_data.items():
+            if 'text' in q_data:
+                if 'id' in q_data:  # Existing question
+                    question = Question.query.get(int(q_data['id']))
+                    if question:
+                        question.question_text = q_data['text']
+                        question.option_a = q_data['option_a']
+                        question.option_b = q_data['option_b']
+                        question.option_c = q_data['option_c']
+                        question.option_d = q_data['option_d']
+                        question.correct_answer = q_data['correct']
+                        existing_question_ids.add(question.id)
+                else:  # New question
+                    question = Question(
+                        quiz_id=quiz.id,
+                        question_text=q_data['text'],
+                        option_a=q_data['option_a'],
+                        option_b=q_data['option_b'],
+                        option_c=q_data['option_c'],
+                        option_d=q_data['option_d'],
+                        correct_answer=q_data['correct']
+                    )
+                    db.session.add(question)
+
+        db.session.commit()
+        flash('Quiz updated successfully!')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error updating quiz: {str(e)}')
+
+    return redirect(url_for('admin.manage_quiz', chapter_id=quiz.chapter_id))
+
+
+@admin_bp.route('/quiz/delete/<int:quiz_id>', methods=['POST'])
+@login_required
+def delete_quiz(quiz_id):
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    try:
+        quiz = Quiz.query.get_or_404(quiz_id)
+        db.session.delete(quiz)
+        db.session.commit()
+        flash('Quiz deleted successfully')
+        return '', 200
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting quiz: {str(e)}')
+        return 'Error deleting quiz', 500
 
 # User routes
 @user_bp.route('/')

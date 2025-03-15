@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ chapter.name }} - Details{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h4>{{ chapter.name }}</h4>
+                <small class="text-muted">Part of {{ chapter.subject.name }}</small>
+            </div>
+            <div>
+                <a href="{{ url_for('admin.view_subject', subject_id=chapter.subject_id) }}" class="btn btn-secondary me-2">Back to Subject</a>
+                <a href="{{ url_for('admin.edit_chapter', chapter_id=chapter.id) }}" class="btn btn-warning">Edit Chapter</a>
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Chapter Details -->
+        <div class="mb-4">
+            <h5>Description</h5>
+            <p class="text-muted">{{ chapter.description or 'No description available' }}</p>
+        </div>
+
+        <!-- Quizzes -->
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5>Quizzes</h5>
+                <a href="{{ url_for('admin.manage_quiz', chapter_id=chapter.id) }}" class="btn btn-primary">Manage Quizzes</a>
+            </div>
+            {% if chapter.quizzes %}
+            <div class="list-group">
+                {% for quiz in chapter.quizzes %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ quiz.title }}</h6>
+                            <small class="text-muted">
+                                Duration: {{ quiz.duration }} minutes | 
+                                Questions: {{ quiz.questions|length }}
+                            </small>
+                        </div>
+                        <div>
+                            <span class="badge bg-info">{{ quiz.attempts|length }} attempts</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No quizzes available for this chapter.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

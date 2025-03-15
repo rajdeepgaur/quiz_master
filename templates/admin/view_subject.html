@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}{{ subject.name }} - Details{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4>{{ subject.name }}</h4>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Subject Details -->
+        <div class="mb-4">
+            <h5>Description</h5>
+            <p class="text-muted">{{ subject.description or 'No description available' }}</p>
+            <a href="{{ url_for('admin.edit_subject', subject_id=subject.id) }}" class="btn btn-warning btn-sm">Edit Subject</a>
+        </div>
+
+        <!-- Chapters -->
+        <div class="mb-4">
+            <h5>Chapters</h5>
+            <div class="list-group">
+                {% for chapter in subject.chapters %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-1">{{ chapter.name }}</h6>
+                        <div>
+                            <a href="{{ url_for('admin.view_chapter', chapter_id=chapter.id) }}" 
+                               class="btn btn-info btn-sm me-2">View Details</a>
+                            <a href="{{ url_for('admin.manage_quiz', chapter_id=chapter.id) }}" 
+                               class="btn btn-primary btn-sm">Manage Quizzes</a>
+                        </div>
+                    </div>
+                    <!-- Preview of chapter description -->
+                    <p class="text-muted small mb-0">
+                        {{ (chapter.description or '')[:100] ~ ('...' if chapter.description and chapter.description|length > 100 else '') }}
+                    </p>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="mt-3">
+                <a href="{{ url_for('admin.add_chapter', subject_id=subject.id) }}" class="btn btn-success">Add New Chapter</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

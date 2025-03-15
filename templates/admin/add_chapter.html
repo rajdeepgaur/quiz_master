@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Chapter{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h4>Add New Chapter to {{ subject.name }}</h4>
+                    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('admin.add_chapter', subject_id=subject.id) }}">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Chapter Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="4"></textarea>
+                        </div>
+                        <div class="text-end">
+                            <button type="submit" class="btn btn-primary">Add Chapter</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -29,6 +29,7 @@ class Subject(db.Model):
     """Subject model for different courses."""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)  
     chapters = db.relationship('Chapter', backref='subject', lazy=True, 
                              cascade='all, delete-orphan')
 
@@ -36,6 +37,7 @@ class Chapter(db.Model):
     """Chapter model linked to subjects."""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)  
     subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
     quizzes = db.relationship('Quiz', backref='chapter', lazy=True, 
                             cascade='all, delete-orphan')
@@ -46,7 +48,8 @@ class Quiz(db.Model):
     title = db.Column(db.String(200), nullable=False)
     chapter_id = db.Column(db.Integer, db.ForeignKey('chapter.id'), nullable=False)
     duration = db.Column(db.Integer, nullable=False)  # Duration in minutes
-    date = db.Column(db.DateTime, nullable=False)
+    start_date = db.Column(db.DateTime, nullable=False)
+    end_date = db.Column(db.DateTime, nullable=False)    
     questions = db.relationship('Question', backref='quiz', lazy=True, 
                               cascade='all, delete-orphan')
     attempts = db.relationship('QuizAttempt', backref='quiz', lazy=True)
@@ -60,7 +63,7 @@ class Question(db.Model):
     option_b = db.Column(db.String(200), nullable=False)
     option_c = db.Column(db.String(200), nullable=False)
     option_d = db.Column(db.String(200), nullable=False)
-    correct_option = db.Column(db.String(1), nullable=False)
+    correct_answer = db.Column(db.String(1), nullable=False)
 
 class QuizAttempt(db.Model):
     """QuizAttempt model to track user attempts at quizzes."""

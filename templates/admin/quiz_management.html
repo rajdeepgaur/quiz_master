@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz Management{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Manage Quiz - {{ chapter.name }}</h4>
+    </div>
+    <div class="card-body">
+        <!-- List of existing quizzes -->
+        {% if chapter.quizzes %}
+        <div class="mb-4">
+            <h5>Existing Quizzes</h5>
+            <div class="list-group">
+                {% for quiz in chapter.quizzes %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-1">{{ quiz.title }}</h6>
+                        <div>
+                            <a href="{{ url_for('admin.edit_quiz', quiz_id=quiz.id) }}" 
+                               class="btn btn-warning btn-sm me-2">Edit</a>
+                            <button class="btn btn-danger btn-sm" 
+                                    onclick="deleteQuiz({{ quiz.id }})">Delete</button>
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        Date: {{ quiz.start_date.strftime('%Y-%m-%d') }} | 
+                        Duration: {{ quiz.duration }} minutes
+                    </small>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Form to add new quiz -->
+        <h5>Add New Quiz</h5>
+        <form id="quizForm" method="POST" action="{{ url_for('admin.add_quiz', chapter_id=chapter.id) }}">
+            <div class="mb-3">
+                <label class="form-label">Quiz Title</label>
+                <input type="text" class="form-control" name="title" required>
+            </div>
+            <div class="row mb-3">
+                <div class="col">
+                    <label class="form-label">Date</label>
+                    <input type="date" class="form-control" name="start_date" required>
+                </div>
+                <div class="col">
+                    <label class="form-label">Duration (minutes)</label>
+                    <input type="number" class="form-control" name="duration" required>
+                </div>
+            </div>
+
+            <div id="questions">
+                <div class="question-block mb-4">
+                    <h5>Question 1</h5>
+                    <div class="mb-3">
+                        <label class="form-label">Question Text</label>
+                        <textarea class="form-control" name="questions[0][text]" required></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Options</label>
+                        <input type="text" class="form-control mb-2" name="questions[0][option_a]" placeholder="Option A" required>
+                        <input type="text" class="form-control mb-2" name="questions[0][option_b]" placeholder="Option B" required>
+                        <input type="text" class="form-control mb-2" name="questions[0][option_c]" placeholder="Option C" required>
+                        <input type="text" class="form-control mb-2" name="questions[0][option_d]" placeholder="Option D" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Correct Answer</label>
+                        <select class="form-control" name="questions[0][correct]" required>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-secondary mb-3" onclick="addQuestion()">Add Question</button>
+            <button type="submit" class="btn btn-primary">Save Quiz</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let questionCount = 1;
+
+function addQuestion() {
+    const template = `
+        <div class="question-block mb-4">
+            <h5>Question ${questionCount + 1}</h5>
+            <div class="mb-3">
+                <label class="form-label">Question Text</label>
+                <textarea class="form-control" name="questions[${questionCount}][text]" required></textarea>
+            </div>
+            <div class="mb-2">
+                <label class="form-label">Options</label>
+                <input type="text" class="form-control mb-2" name="questions[${questionCount}][option_a]" placeholder="Option A" required>
+                <input type="text" class="form-control mb-2" name="questions[${questionCount}][option_b]" placeholder="Option B" required>
+                <input type="text" class="form-control mb-2" name="questions[${questionCount}][option_c]" placeholder="Option C" required>
+                <input type="text" class="form-control mb-2" name="questions[${questionCount}][option_d]" placeholder="Option D" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Correct Answer</label>
+                <select class="form-control" name="questions[${questionCount}][correct]" required>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('questions').insertAdjacentHTML('beforeend', template);
+    questionCount++;
+}
+
+function deleteQuiz(id) {
+    if (confirm('Are you sure you want to delete this quiz? This will also delete all associated questions and attempts.')) {
+        fetch(`/admin/quiz/delete/${id}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }).then(response => {
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                alert('Error deleting quiz');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}
