@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}{{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <div class="d-flex justify-content-between align-items-center">
+            <h4>{{ quiz.title }}</h4>
+            <div id="timer" class="text-warning"></div>
+        </div>
+    </div>
+    <div class="card-body">
+        <form id="quizForm" method="POST" action="{{ url_for('user.submit_quiz', quiz_id=quiz.id) }}">
+            {% for question in quiz.questions %}
+            <div class="mb-4">
+                <h5>Question {{ loop.index }}</h5>
+                <p class="mb-3">{{ question.question_text }}</p>
+                
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="question_{{ question.id }}" 
+                           id="q{{ question.id }}_a" value="A" required>
+                    <label class="form-check-label" for="q{{ question.id }}_a">
+                        {{ question.option_a }}
+                    </label>
+                </div>
+                
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="question_{{ question.id }}"
+                           id="q{{ question.id }}_b" value="B">
+                    <label class="form-check-label" for="q{{ question.id }}_b">
+                        {{ question.option_b }}
+                    </label>
+                </div>
+                
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="question_{{ question.id }}"
+                           id="q{{ question.id }}_c" value="C">
+                    <label class="form-check-label" for="q{{ question.id }}_c">
+                        {{ question.option_c }}
+                    </label>
+                </div>
+                
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="question_{{ question.id }}"
+                           id="q{{ question.id }}_d" value="D">
+                    <label class="form-check-label" for="q{{ question.id }}_d">
+                        {{ question.option_d }}
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <button type="submit" class="btn btn-primary">Submit Quiz</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/quiz.js') }}"></script>
+<script>
+    initializeTimer({{ quiz.duration * 60 }});
+</script>
+{% endblock %}

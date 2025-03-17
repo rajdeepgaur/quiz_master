@@ -1,12 +1,46 @@
 {% extends "base.html" %}
 
+{% block title %}User Dashboard{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h4 class="card-title mb-0">User Dashboard</h4>
-    </div>
-    <div class="card-body">
-        <p>Welcome, {{ current_user.username }}!</p>
-    </div>
-</div>
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Available Quizzes</h4>
+            </div>
+            <div class="card-body">
+                <div class="accordion" id="subjectsAccordion">
+                    {% for subject in subjects %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                    data-bs-target="#subject{{ subject.id }}">
+                                {{ subject.name }}
+                            </button>
+                        </h2>
+                        <div id="subject{{ subject.id }}" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                {% for chapter in subject.chapters %}
+                                <div class="card mb-3">
+                                    <div class="card-header">{{ chapter.name }}</div>
+                                    <div class="card-body">
+                                        {% for quiz in chapter.quizzes %}
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <span>{{ quiz.title }}</span>
+                                            <a href="{{ url_for('user.take_quiz', quiz_id=quiz.id) }}"
+                                               class="btn btn-primary btn-sm">Start Quiz</a>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
 {% endblock %}

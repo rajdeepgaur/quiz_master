@@ -416,4 +416,27 @@ def delete_quiz(quiz_id):
 @user_bp.route('/dashboard')
 @login_required
 def user_dashboard():
-    return render_template('user/dashboard.html')
+    subjects = Subject.query.all()
+    return render_template('user/dashboard.html', subjects=subjects)
+
+@user_bp.route('/quiz/<int:quiz_id>')
+@login_required
+def take_quiz(quiz_id):
+    quiz = Quiz.query.get_or_404(quiz_id)
+    return render_template('user/quiz.html', quiz=quiz)
+
+@user_bp.route('/quiz/<int:quiz_id>/submit', methods=['POST'])
+@login_required
+def submit_quiz(quiz_id):
+    quiz = Quiz.query.get_or_404(quiz_id)
+    score = 0
+    for question in quiz.questions:
+        answer = request.form.get(f'question_{question.id}')
+        if answer == question.correct_answer:
+            score += 1
+
+    attempt = QuizAttempt(user_id=current_user.id, quiz_id=quiz_id, score=score)
+    db.session.add(attempt)
+    db.session.commit()
+    flash(f'Quiz submitted! Your score: {score}/{len(quiz.questions)}')
+    return redirect(url_for('user.user_dashboard'))
