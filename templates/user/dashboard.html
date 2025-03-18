@@ -42,5 +42,40 @@
                 </div>
             </div>
         </div>
+    </div>
 
+    <div class="col-md-4">
+        <!-- Quick Actions -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Quick Actions</h4>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('user.view_summary') }}" class="btn btn-info">View Performance Summary</a>
+                    <a href="{{ url_for('user.view_attempts') }}" class="btn btn-primary">View All Attempts</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Attempts -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4>Recent Attempts</h4>
+                <a href="{{ url_for('user.view_attempts') }}" class="btn btn-sm btn-primary">View All</a>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for attempt in attempts %}
+                    <div class="list-group-item">
+                        <h6 class="mb-1">{{ attempt.quiz.title }}</h6>
+                        <p class="mb-1">Score: {{ attempt.score }}/{{ attempt.quiz.questions|length }}</p>
+                        <small>{{ attempt.date_attempted.strftime('%Y-%m-%d %H:%M') }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

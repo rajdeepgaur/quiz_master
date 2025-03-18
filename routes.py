@@ -417,7 +417,80 @@ def delete_quiz(quiz_id):
 @login_required
 def user_dashboard():
     subjects = Subject.query.all()
-    return render_template('user/dashboard.html', subjects=subjects)
+
+    # Get only 3 recent attempts
+    recent_attempts = QuizAttempt.query.filter_by(user_id=current_user.id)\
+        .order_by(QuizAttempt.date_attempted.desc())\
+        .limit(3).all()
+
+    return render_template('user/dashboard.html', 
+                         subjects=subjects, 
+                         attempts=recent_attempts)
+
+# Add new route for viewing all attempts
+@user_bp.route('/attempts')
+@login_required
+def view_attempts():
+    attempts = QuizAttempt.query.filter_by(user_id=current_user.id)\
+        .order_by(QuizAttempt.date_attempted.desc())\
+        .all()
+    return render_template('user/attempts.html', attempts=attempts)
+
+# Add new route for summary report
+@user_bp.route('/summary')
+@login_required
+def view_summary():
+    # Get total score and maximum possible score
+    attempts_with_scores = db.session.query(
+        QuizAttempt.score,
+        func.count(Question.id).label('total_questions')
+    ).join(Quiz, QuizAttempt.quiz_id == Quiz.id)\
+    .join(Question, Question.quiz_id == Quiz.id)\
+    .filter(QuizAttempt.user_id == current_user.id)\
+    .group_by(QuizAttempt.id, QuizAttempt.score)\
+    .all()
+
+    total_score = sum(attempt.score for attempt in attempts_with_scores)
+    total_possible = sum(attempt.total_questions for attempt in attempts_with_scores)
+    total_attempts = len(attempts_with_scores)
+
+    # Calculate percentage score
+    avg_percentage = (total_score / total_possible * 100) if total_possible > 0 else 0
+
+    quiz_stats = {
+        'total_attempts': total_attempts,
+        'total_score': total_score,
+        'total_possible': total_possible,
+        'avg_percentage': round(avg_percentage, 2)
+    }
+
+    # First get the total questions per quiz in a subquery
+    questions_per_quiz = db.session.query(
+        Quiz.id.label('quiz_id'),
+        func.count(Question.id).label('question_count')
+    ).join(Question)\
+    .group_by(Quiz.id)\
+    .subquery()
+
+    # Then use this to calculate subject-wise statistics
+    subject_stats = db.session.query(
+        Subject.name,
+        func.count(QuizAttempt.id).label('attempts'),
+        func.avg(
+            (100.0 * QuizAttempt.score / questions_per_quiz.c.question_count)
+        ).label('avg_score')
+    ).select_from(Subject)\
+    .join(Chapter)\
+    .join(Quiz)\
+    .join(questions_per_quiz, questions_per_quiz.c.quiz_id == Quiz.id)\
+    .join(QuizAttempt)\
+    .filter(QuizAttempt.user_id == current_user.id)\
+    .group_by(Subject.name)\
+    .all()
+
+    return render_template('user/summary.html', 
+                         quiz_stats=quiz_stats,
+                         subject_stats=subject_stats)
 
 @user_bp.route('/quiz/<int:quiz_id>')
 @login_required

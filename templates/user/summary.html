@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Quiz Performance Summary{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4>Quiz Performance Summary</h4>
+        <a href="{{ url_for('user.user_dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+    <div class="card-body">
+        <!-- Overall Statistics -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Overall Statistics</h5>
+            </div>
+            <div class="card-body">
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Total Attempts
+                        <span class="badge bg-primary rounded-pill">{{ quiz_stats.total_attempts }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Total Score
+                        <span class="badge bg-success rounded-pill">
+                            {{ quiz_stats.total_score }} / {{ quiz_stats.total_possible }}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Average Score
+                        <span class="badge bg-info rounded-pill">{{ quiz_stats.avg_percentage }}%</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Subject-wise Performance -->
+        <div class="card">
+            <div class="card-header">
+                <h5>Performance by Subject</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group">
+                    {% for subject in subject_stats %}
+                    <div class="list-group-item">
+                        <h6 class="mb-2">{{ subject.name }}</h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small>Attempts: {{ subject.attempts }}</small>
+                            <small>Average Score: {{ "%.2f"|format(subject.avg_score) }}%</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
