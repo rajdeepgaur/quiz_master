@@ -29,6 +29,12 @@
                         </li>
                     {% endif %}
                 </ul>
+                {% if current_user.is_authenticated %}
+                <form class="d-flex mx-auto" method="GET" action="{{ url_for('admin.admin_search') if current_user.is_admin else url_for('user.user_search') }}">
+                    <input class="form-control me-2" type="search" name="q" placeholder="{{ 'Search users, subjects, quizzes...' if current_user.is_admin else 'Search subjects and quizzes...' }}" aria-label="Search">
+                    <button class="btn btn-outline-light" type="submit">Search</button>
+                </form>
+                {% endif %}
                 <ul class="navbar-nav ms-auto">
                     {% if current_user.is_authenticated %}
                         <li class="nav-item">

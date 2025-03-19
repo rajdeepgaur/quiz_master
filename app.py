@@ -15,7 +15,7 @@ def create_app():
     app.secret_key = os.environ.get("SESSION_SECRET")
 
     # Database Configuration
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///quiz-master.db")
+    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///quizmaster.db")
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
     # Set secret key for session management

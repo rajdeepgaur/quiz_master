@@ -3,7 +3,7 @@ from flask_login import login_user, logout_user, login_required, current_user
 from app import db
 from models import User, Subject, Chapter, Quiz, Question, QuizAttempt
 from datetime import datetime, timedelta
-from sqlalchemy import func, case, text
+from sqlalchemy import func, case, text, or_
 from sqlalchemy.types import Float
 
 # Create blueprints with proper URL prefixes
@@ -410,6 +410,40 @@ def delete_quiz(quiz_id):
         db.session.rollback()
         flash(f'Error deleting quiz: {str(e)}')
         return 'Error deleting quiz', 500
+    
+@admin_bp.route('/search')
+@login_required
+def admin_search():
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    query = request.args.get('q', '').strip()
+    if not query:
+        return redirect(url_for('admin.dashboard'))
+
+    # Search users
+    users = User.query.filter(
+        or_(User.username.ilike(f'%{query}%'),
+            User.email.ilike(f'%{query}%'))).all()
+
+    # Search subjects
+    subjects = Subject.query.filter(
+        or_(Subject.name.ilike(f'%{query}%'),
+            Subject.description.ilike(f'%{query}%'))).all()
+
+    # Search quizzes
+    quizzes = Quiz.query.filter(Quiz.title.ilike(f'%{query}%')).all()
+
+    # Search questions
+    questions = Question.query.filter(
+        Question.question_text.ilike(f'%{query}%')).all()
+
+    return render_template('admin/search_results.html',
+                           query=query,
+                           users=users,
+                           subjects=subjects,
+                           quizzes=quizzes,
+                           questions=questions)
 
 # User routes
 @user_bp.route('/')
@@ -513,3 +547,25 @@ def submit_quiz(quiz_id):
     db.session.commit()
     flash(f'Quiz submitted! Your score: {score}/{len(quiz.questions)}')
     return redirect(url_for('user.user_dashboard'))
+
+@user_bp.route('/search')
+@login_required
+def user_search():
+    query = request.args.get('q', '').strip()
+    if not query:
+        return redirect(url_for('user.user_dashboard'))
+
+    # Search subjects
+    subjects = Subject.query.filter(
+        or_(Subject.name.ilike(f'%{query}%'),
+            Subject.description.ilike(f'%{query}%'))).all()
+
+    # Search quizzes - include matches on subject name, chapter name, and quiz title
+    quizzes = Quiz.query.join(Chapter).join(Subject).filter(
+        or_(Subject.name.ilike(f'%{query}%'), Chapter.name.ilike(f'%{query}%'),
+            Quiz.title.ilike(f'%{query}%'))).all()
+
+    return render_template('user/search_results.html',
+                           query=query,
+                           subjects=subjects,
+                           quizzes=quizzes)
