@@ -5,46 +5,129 @@
 {% block content %}
 <div class="row">
     <div class="col-md-8">
+        <!-- Available Quizzes -->
         <div class="card mb-4">
             <div class="card-header">
                 <h4>Available Quizzes</h4>
             </div>
             <div class="card-body">
+                {% set has_any_active_quizzes = false %}
+                {% for subject in subjects %}
+                    {% for chapter in subject.chapters %}
+                        {% for quiz in chapter.quizzes %}
+                            {% if quiz.start_date <= current_time and quiz.end_date >= current_time %}
+                                {% set has_any_active_quizzes = true %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                {% endfor %}
+
+                {% if has_any_active_quizzes %}
                 <div class="accordion" id="subjectsAccordion">
                     {% for subject in subjects %}
-                    <div class="accordion-item">
-                        <h2 class="accordion-header">
-                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                    data-bs-target="#subject{{ subject.id }}">
-                                {{ subject.name }}
-                            </button>
-                        </h2>
-                        <div id="subject{{ subject.id }}" class="accordion-collapse collapse">
-                            <div class="accordion-body">
-                                {% for chapter in subject.chapters %}
-                                <div class="card mb-3">
-                                    <div class="card-header">{{ chapter.name }}</div>
-                                    <div class="card-body">
+                        {% set has_active_quizzes = false %}
+                        {% for chapter in subject.chapters %}
+                            {% for quiz in chapter.quizzes %}
+                                {% if quiz.start_date <= current_time and quiz.end_date >= current_time %}
+                                    {% set has_active_quizzes = true %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+
+                        {% if has_active_quizzes %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#subject{{ subject.id }}">
+                                    {{ subject.name }}
+                                </button>
+                            </h2>
+                            <div id="subject{{ subject.id }}" class="accordion-collapse collapse" data-bs-parent="#subjectsAccordion">
+                                <div class="accordion-body">
+                                    {% for chapter in subject.chapters %}
+                                        {% set chapter_has_active_quizzes = false %}
                                         {% for quiz in chapter.quizzes %}
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <span>{{ quiz.title }}</span>
-                                            <a href="{{ url_for('user.take_quiz', quiz_id=quiz.id) }}"
-                                               class="btn btn-primary btn-sm">Start Quiz</a>
-                                        </div>
+                                            {% if quiz.start_date <= current_time and quiz.end_date >= current_time %}
+                                                {% set chapter_has_active_quizzes = true %}
+                                            {% endif %}
                                         {% endfor %}
-                                    </div>
+
+                                        {% if chapter_has_active_quizzes %}
+                                        <div class="card mb-3">
+                                            <div class="card-header">
+                                                <h5 class="mb-0">{{ chapter.name }}</h5>
+                                            </div>
+                                            <div class="card-body">
+                                                {% for quiz in chapter.quizzes %}
+                                                    {% if quiz.start_date <= current_time and quiz.end_date >= current_time %}
+                                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                                        <div>
+                                                            <h6 class="mb-1">{{ quiz.title }}</h6>
+                                                            <small class="text-muted">
+                                                                Duration: {{ quiz.duration }} minutes<br>
+                                                                Start: {{ quiz.start_date.strftime('%Y-%m-%d %H:%M') }}<br>
+                                                                End: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+                                                            </small>
+                                                        </div>
+                                                        <a href="{{ url_for('user.take_quiz', quiz_id=quiz.id) }}"
+                                                           class="btn btn-primary btn-sm">Attempt Quiz</a>
+                                                    </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    {% endfor %}
                                 </div>
-                                {% endfor %}
                             </div>
                         </div>
-                    </div>
+                        {% endif %}
                     {% endfor %}
                 </div>
+                {% else %}
+                <div class="alert alert-info">
+                    There are no quizzes available at the moment.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+
+    <!-- Past Quizzes -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h4>Past Quizzes</h4>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for subject in subjects %}
+                    {% for chapter in subject.chapters %}
+                        {% for quiz in chapter.quizzes %}
+                            {% if quiz.end_date < current_time %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ quiz.title }}</h6>
+                                        <small class="text-muted">
+                                            From: {{ subject.name }} > {{ chapter.name }}<br>
+                                            Ended: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+                                        </small>
+                                    </div>
+                                    <a href="{{ url_for('user.view_quiz', quiz_id=quiz.id) }}"
+                                       class="btn btn-secondary btn-sm">View Quiz</a>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% endfor %}
+                {% endfor %}
             </div>
         </div>
     </div>
+</div>
 
     <div class="col-md-4">
+        <!-- Quick Actions -->
         <div class="card mb-4">
             <div class="card-header">
                 <h4>Quick Actions</h4>
@@ -57,6 +140,7 @@
             </div>
         </div>
 
+        <!-- Recent Attempts -->
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h4>Recent Attempts</h4>

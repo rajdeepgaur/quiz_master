@@ -255,7 +255,8 @@ def manage_quiz(chapter_id):
     if not current_user.is_admin:
         return redirect(url_for('user.user_dashboard'))
     chapter = Chapter.query.get_or_404(chapter_id)
-    return render_template('admin/quiz_management.html', chapter=chapter)
+    current_time = datetime.utcnow()
+    return render_template('admin/quiz_management.html', chapter=chapter, current_time=current_time)
 
 @admin_bp.route('/quiz/add/<int:chapter_id>', methods=['POST'])
 @login_required
@@ -267,20 +268,17 @@ def add_quiz(chapter_id):
         try:
             # Get quiz details from form
             title = request.form.get('title')
-            start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+            start_datetime = datetime.strptime(request.form.get('start_datetime'), '%Y-%m-%dT%H:%M')
+            end_datetime = datetime.strptime(request.form.get('end_datetime'), '%Y-%m-%dT%H:%M')
             duration = int(request.form.get('duration'))
-
-            # Set start time to beginning of day and end time to end of day
-            start_date = start_date.replace(hour=0, minute=0, second=0)
-            end_date = start_date.replace(hour=23, minute=59, second=59)
 
             # Create quiz
             quiz = Quiz(
                 title=title,
                 chapter_id=chapter_id,
                 duration=duration,
-                start_date=start_date,
-                end_date=end_date
+                start_date=start_datetime,
+                end_date=end_datetime
             )
             db.session.add(quiz)
             db.session.flush()  # Get quiz.id before committing
@@ -338,7 +336,8 @@ def update_quiz(quiz_id):
     try:
         # Update quiz details
         quiz.title = request.form.get('title')
-        start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+        start_date = datetime.strptime(request.form.get('start_date'),
+                                       '%Y-%m-%d')
         quiz.duration = int(request.form.get('duration'))
 
         # Set start time to beginning of day and end time to end of day
@@ -353,7 +352,8 @@ def update_quiz(quiz_id):
         for key, value in request.form.items():
             if key.startswith('questions['):
                 parts = key.replace('questions[', '').replace(']', ' ').split()
-                idx, field = parts[0], parts[1].replace('[', '').replace(']', '')
+                idx, field = parts[0], parts[1].replace('[',
+                                                        '').replace(']', '')
 
                 if idx not in questions_data:
                     questions_data[idx] = {}
@@ -373,15 +373,13 @@ def update_quiz(quiz_id):
                         question.correct_answer = q_data['correct']
                         existing_question_ids.add(question.id)
                 else:  # New question
-                    question = Question(
-                        quiz_id=quiz.id,
-                        question_text=q_data['text'],
-                        option_a=q_data['option_a'],
-                        option_b=q_data['option_b'],
-                        option_c=q_data['option_c'],
-                        option_d=q_data['option_d'],
-                        correct_answer=q_data['correct']
-                    )
+                    question = Question(quiz_id=quiz.id,
+                                        question_text=q_data['text'],
+                                        option_a=q_data['option_a'],
+                                        option_b=q_data['option_b'],
+                                        option_c=q_data['option_c'],
+                                        option_d=q_data['option_d'],
+                                        correct_answer=q_data['correct'])
                     db.session.add(question)
 
         db.session.commit()
@@ -451,6 +449,8 @@ def admin_search():
 @login_required
 def user_dashboard():
     subjects = Subject.query.all()
+    current_time = datetime.utcnow()
+
 
     # Get only 3 recent attempts
     recent_attempts = QuizAttempt.query.filter_by(user_id=current_user.id)\
@@ -459,7 +459,8 @@ def user_dashboard():
 
     return render_template('user/dashboard.html', 
                          subjects=subjects, 
-                         attempts=recent_attempts)
+                         attempts=recent_attempts,
+                         current_time=current_time)
 
 # Add new route for viewing all attempts
 @user_bp.route('/attempts')
@@ -530,19 +531,50 @@ def view_summary():
 @login_required
 def take_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
+    current_time = datetime.utcnow()
+
+    # Check if quiz is available
+    if current_time < quiz.start_date or current_time > quiz.end_date:
+        flash('This quiz is not available at this time.')
+        return redirect(url_for('user.user_dashboard'))
+
     return render_template('user/quiz.html', quiz=quiz)
+
+
+@user_bp.route('/quiz/<int:quiz_id>/view')
+@login_required
+def view_quiz(quiz_id):
+    quiz = Quiz.query.get_or_404(quiz_id)
+    current_time = datetime.utcnow()
+
+    # Check if quiz has ended
+    if current_time <= quiz.end_date:
+        flash('This quiz is still active and cannot be viewed.')
+        return redirect(url_for('user.user_dashboard'))
+
+    return render_template('user/view_quiz.html', quiz=quiz)
+
 
 @user_bp.route('/quiz/<int:quiz_id>/submit', methods=['POST'])
 @login_required
 def submit_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
+    current_time = datetime.utcnow()
+
+    # Check if quiz is still available
+    if current_time < quiz.start_date or current_time > quiz.end_date:
+        flash('This quiz is not available at this time.')
+        return redirect(url_for('user.user_dashboard'))
+
     score = 0
     for question in quiz.questions:
         answer = request.form.get(f'question_{question.id}')
         if answer == question.correct_answer:
             score += 1
 
-    attempt = QuizAttempt(user_id=current_user.id, quiz_id=quiz_id, score=score)
+    attempt = QuizAttempt(user_id=current_user.id,
+                         quiz_id=quiz_id,
+                         score=score)
     db.session.add(attempt)
     db.session.commit()
     flash(f'Quiz submitted! Your score: {score}/{len(quiz.questions)}')

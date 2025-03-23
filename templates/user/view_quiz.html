@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}View Quiz - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4>{{ quiz.title }}</h4>
+        <a href="{{ url_for('user.user_dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+    </div>
+    <div class="card-body">
+        <!-- Quiz Info -->
+        <div class="mb-4">
+            <p class="text-muted">
+                Subject: {{ quiz.chapter.subject.name }} > {{ quiz.chapter.name }}<br>
+                Duration: {{ quiz.duration }} minutes<br>
+                Start Date: {{ quiz.start_date.strftime('%Y-%m-%d %H:%M') }}<br>
+                End Date: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+            </p>
+        </div>
+
+        <!-- Questions -->
+        <div class="list-group">
+            {% for question in quiz.questions %}
+            <div class="list-group-item">
+                <h5 class="mb-3">Question {{ loop.index }}</h5>
+                <p class="mb-3">{{ question.question_text }}</p>
+                
+                <div class="mb-3">
+                    <div class="form-check {% if question.correct_answer == 'A' %}text-success{% endif %}">
+                        <input class="form-check-input" type="radio" disabled {% if question.correct_answer == 'A' %}checked{% endif %}>
+                        <label class="form-check-label">
+                            A) {{ question.option_a }}
+                        </label>
+                    </div>
+                    <div class="form-check {% if question.correct_answer == 'B' %}text-success{% endif %}">
+                        <input class="form-check-input" type="radio" disabled {% if question.correct_answer == 'B' %}checked{% endif %}>
+                        <label class="form-check-label">
+                            B) {{ question.option_b }}
+                        </label>
+                    </div>
+                    <div class="form-check {% if question.correct_answer == 'C' %}text-success{% endif %}">
+                        <input class="form-check-input" type="radio" disabled {% if question.correct_answer == 'C' %}checked{% endif %}>
+                        <label class="form-check-label">
+                            C) {{ question.option_c }}
+                        </label>
+                    </div>
+                    <div class="form-check {% if question.correct_answer == 'D' %}text-success{% endif %}">
+                        <input class="form-check-input" type="radio" disabled {% if question.correct_answer == 'D' %}checked{% endif %}>
+                        <label class="form-check-label">
+                            D) {{ question.option_d }}
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="alert alert-success">
+                    <strong>Correct Answer:</strong> Option {{ question.correct_answer }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

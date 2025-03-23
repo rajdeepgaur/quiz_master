@@ -25,7 +25,8 @@
                         </div>
                     </div>
                     <small class="text-muted">
-                        Date: {{ quiz.start_date.strftime('%Y-%m-%d') }} | 
+                        Start: {{ quiz.start_date.strftime('%Y-%m-%d %H:%M') }} | 
+                        End: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }} | 
                         Duration: {{ quiz.duration }} minutes
                     </small>
                 </div>
@@ -43,8 +44,12 @@
             </div>
             <div class="row mb-3">
                 <div class="col">
-                    <label class="form-label">Date</label>
-                    <input type="date" class="form-control" name="start_date" required>
+                    <label class="form-label">Start Date & Time</label>
+                    <input type="datetime-local" class="form-control" name="start_datetime" required>
+                </div>
+                <div class="col">
+                    <label class="form-label">End Date & Time</label>
+                    <input type="datetime-local" class="form-control" name="end_datetime" required>
                 </div>
                 <div class="col">
                     <label class="form-label">Duration (minutes)</label>
