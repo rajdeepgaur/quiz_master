@@ -256,7 +256,7 @@ def manage_quiz(chapter_id):
         return redirect(url_for('user.user_dashboard'))
     chapter = Chapter.query.get_or_404(chapter_id)
     current_time = datetime.utcnow()
-    return render_template('admin/quiz_management.html', chapter=chapter, current_time=current_time)
+    return render_template('admin/quiz_management.html', chapter=chapter, current_time=current_time, timedelta=timedelta)
 
 @admin_bp.route('/quiz/add/<int:chapter_id>', methods=['POST'])
 @login_required
@@ -451,25 +451,54 @@ def user_dashboard():
     subjects = Subject.query.all()
     current_time = datetime.utcnow()
 
+    # Debug output for data structure
+    print("DEBUG: Current time:", current_time)
+    print("DEBUG: Subjects loaded:", len(subjects))
+
+    # Count active quizzes for each subject and chapter
+    total_active_quizzes = 0
+    for subject in subjects:
+        print(f"\nDEBUG: Subject: {subject.name}")
+        for chapter in subject.chapters:
+            active_quizzes = []
+            for quiz in chapter.quizzes:
+                print(f"DEBUG: Checking quiz: {quiz.title}")
+                print(f"DEBUG: Quiz start: {quiz.start_date}, Quiz end: {quiz.end_date}, Current: {current_time}")
+                # Ensure proper datetime comparison using timestamps
+                if quiz.start_date <= current_time and quiz.end_date >= current_time:
+                    active_quizzes.append(quiz)
+                    total_active_quizzes += 1
+                    print(f"DEBUG: Quiz {quiz.title} is ACTIVE")
+                else:
+                    print(f"DEBUG: Quiz {quiz.title} is NOT active")
+
+            print(f"DEBUG: Chapter {chapter.name} has {len(active_quizzes)} active quizzes")
+            for quiz in active_quizzes:
+                print(f"DEBUG: Active quiz found - {quiz.title}")
+                print(f"DEBUG: Start: {quiz.start_date}, End: {quiz.end_date}")
+
+    print(f"\nDEBUG: Total active quizzes across all subjects: {total_active_quizzes}")
 
     # Get only 3 recent attempts
-    recent_attempts = QuizAttempt.query.filter_by(user_id=current_user.id)\
-        .order_by(QuizAttempt.date_attempted.desc())\
+    recent_attempts = QuizAttempt.query.filter_by(user_id=current_user.id) \
+        .order_by(QuizAttempt.date_attempted.desc()) \
         .limit(3).all()
 
-    return render_template('user/dashboard.html', 
-                         subjects=subjects, 
+    return render_template('user/dashboard.html',
+                         subjects=subjects,
                          attempts=recent_attempts,
                          current_time=current_time)
+
 
 # Add new route for viewing all attempts
 @user_bp.route('/attempts')
 @login_required
 def view_attempts():
-    attempts = QuizAttempt.query.filter_by(user_id=current_user.id)\
-        .order_by(QuizAttempt.date_attempted.desc())\
+    attempts = QuizAttempt.query.filter_by(user_id=current_user.id) \
+        .order_by(QuizAttempt.date_attempted.desc()) \
         .all()
     return render_template('user/attempts.html', attempts=attempts)
+
 
 # Add new route for summary report
 @user_bp.route('/summary')
@@ -479,18 +508,20 @@ def view_summary():
     attempts_with_scores = db.session.query(
         QuizAttempt.score,
         func.count(Question.id).label('total_questions')
-    ).join(Quiz, QuizAttempt.quiz_id == Quiz.id)\
-    .join(Question, Question.quiz_id == Quiz.id)\
-    .filter(QuizAttempt.user_id == current_user.id)\
-    .group_by(QuizAttempt.id, QuizAttempt.score)\
-    .all()
+    ).join(Quiz, QuizAttempt.quiz_id == Quiz.id) \
+        .join(Question, Question.quiz_id == Quiz.id) \
+        .filter(QuizAttempt.user_id == current_user.id) \
+        .group_by(QuizAttempt.id, QuizAttempt.score) \
+        .all()
 
     total_score = sum(attempt.score for attempt in attempts_with_scores)
-    total_possible = sum(attempt.total_questions for attempt in attempts_with_scores)
+    total_possible = sum(attempt.total_questions
+                         for attempt in attempts_with_scores)
     total_attempts = len(attempts_with_scores)
 
     # Calculate percentage score
-    avg_percentage = (total_score / total_possible * 100) if total_possible > 0 else 0
+    avg_percentage = (total_score / total_possible *
+                      100) if total_possible > 0 else 0
 
     quiz_stats = {
         'total_attempts': total_attempts,
@@ -503,9 +534,9 @@ def view_summary():
     questions_per_quiz = db.session.query(
         Quiz.id.label('quiz_id'),
         func.count(Question.id).label('question_count')
-    ).join(Question)\
-    .group_by(Quiz.id)\
-    .subquery()
+    ).join(Question) \
+        .group_by(Quiz.id) \
+        .subquery()
 
     # Then use this to calculate subject-wise statistics
     subject_stats = db.session.query(
@@ -514,18 +545,19 @@ def view_summary():
         func.avg(
             (100.0 * QuizAttempt.score / questions_per_quiz.c.question_count)
         ).label('avg_score')
-    ).select_from(Subject)\
-    .join(Chapter)\
-    .join(Quiz)\
-    .join(questions_per_quiz, questions_per_quiz.c.quiz_id == Quiz.id)\
-    .join(QuizAttempt)\
-    .filter(QuizAttempt.user_id == current_user.id)\
-    .group_by(Subject.name)\
-    .all()
+    ).select_from(Subject) \
+        .join(Chapter) \
+        .join(Quiz) \
+        .join(questions_per_quiz, questions_per_quiz.c.quiz_id == Quiz.id) \
+        .join(QuizAttempt) \
+        .filter(QuizAttempt.user_id == current_user.id) \
+        .group_by(Subject.name) \
+        .all()
 
-    return render_template('user/summary.html', 
-                         quiz_stats=quiz_stats,
-                         subject_stats=subject_stats)
+    return render_template('user/summary.html',
+                           quiz_stats=quiz_stats,
+                           subject_stats=subject_stats)
+
 
 @user_bp.route('/quiz/<int:quiz_id>')
 @login_required
@@ -580,6 +612,8 @@ def submit_quiz(quiz_id):
     flash(f'Quiz submitted! Your score: {score}/{len(quiz.questions)}')
     return redirect(url_for('user.user_dashboard'))
 
+
+# User Search Route
 @user_bp.route('/search')
 @login_required
 def user_search():
