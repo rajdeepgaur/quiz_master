@@ -11,39 +11,26 @@
                 <h4>Available Quizzes</h4>
             </div>
             <div class="card-body">
-                {% set found_active_quiz = false %}
-                {% for subject in subjects %}
-                    {% set subject_has_active = false %}
-                    {% for chapter in subject.chapters %}
-                        {% for quiz in chapter.quizzes %}
-                            {% if quiz.start_date <= current_time and quiz.end_date >= current_time %}
-                                {% if not found_active_quiz %}
-                                    {% set found_active_quiz = true %}
-                                {% endif %}
-                                {% if not subject_has_active %}
-                                    {% set subject_has_active = true %}
-                                    <h5 class="mb-3">{{ subject.name }}</h5>
-                                {% endif %}
-                                <div class="list-group-item mb-3">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h6 class="mb-1">{{ quiz.title }}</h6>
-                                            <small class="text-muted">
-                                                From: {{ chapter.name }}<br>
-                                                Duration: {{ quiz.duration }} minutes<br>
-                                                End: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
-                                            </small>
-                                        </div>
-                                        <a href="{{ url_for('user.take_quiz', quiz_id=quiz.id) }}"
-                                           class="btn btn-primary btn-sm">Attempt Quiz</a>
-                                    </div>
+                {% if active_quizzes %}
+                    <div class="list-group">
+                    {% for quiz in active_quizzes %}
+                        <div class="list-group-item mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ quiz.title }}</h6>
+                                    <small class="text-muted">
+                                        From: {{ quiz.chapter.subject.name }} > {{ quiz.chapter.name }}<br>
+                                        Duration: {{ quiz.duration }} minutes<br>
+                                        End: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+                                    </small>
                                 </div>
-                            {% endif %}
-                        {% endfor %}
+                                <a href="{{ url_for('user.take_quiz', quiz_id=quiz.id) }}"
+                                   class="btn btn-primary btn-sm">Attempt Quiz</a>
+                            </div>
+                        </div>
                     {% endfor %}
-                {% endfor %}
-
-                {% if not found_active_quiz %}
+                    </div>
+                {% else %}
                     <div class="alert alert-info">
                         There are no quizzes available at the moment.
                     </div>
@@ -57,29 +44,29 @@
                 <h4>Past Quizzes</h4>
             </div>
             <div class="card-body">
-                <div class="list-group">
-                    {% for subject in subjects %}
-                        {% for chapter in subject.chapters %}
-                            {% for quiz in chapter.quizzes %}
-                                {% if quiz.end_date < current_time %}
-                                <div class="list-group-item">
-                                    <div class="d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <h6 class="mb-1">{{ quiz.title }}</h6>
-                                            <small class="text-muted">
-                                                From: {{ subject.name }} > {{ chapter.name }}<br>
-                                                Ended: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
-                                            </small>
-                                        </div>
-                                        <a href="{{ url_for('user.view_quiz', quiz_id=quiz.id) }}"
-                                           class="btn btn-secondary btn-sm">View Quiz</a>
-                                    </div>
+                {% if past_quizzes %}
+                    <div class="list-group">
+                    {% for quiz in past_quizzes %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ quiz.title }}</h6>
+                                    <small class="text-muted">
+                                        From: {{ quiz.chapter.subject.name }} > {{ quiz.chapter.name }}<br>
+                                        Ended: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+                                    </small>
                                 </div>
-                                {% endif %}
-                            {% endfor %}
-                        {% endfor %}
+                                <a href="{{ url_for('user.view_quiz', quiz_id=quiz.id) }}"
+                                   class="btn btn-secondary btn-sm">View Quiz</a>
+                            </div>
+                        </div>
                     {% endfor %}
-                </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No past quizzes available.
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -110,7 +97,7 @@
                     <div class="list-group-item">
                         <h6 class="mb-1">{{ attempt.quiz.title }}</h6>
                         <p class="mb-1">Score: {{ attempt.score }}/{{ attempt.quiz.questions|length }}</p>
-                        <small class="text-muted">{{ attempt.date_attempted.strftime('%Y-%m-%d %H:%M') }}</small>
+                        <small class="text-muted">{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}</small>
                     </div>
                     {% endfor %}
                 </div>
