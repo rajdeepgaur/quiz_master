@@ -6,102 +6,87 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, case, text, or_
 from sqlalchemy.types import Float
 
-# Create blueprints with proper URL prefixes
-auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+auth_bp = Blueprint('auth', __name__)
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 user_bp = Blueprint('user', __name__, url_prefix='/user')
-main_bp = Blueprint('main', __name__)
 
-# Main routes
-@main_bp.route('/')
+
+# Root route
+@auth_bp.route('/')
 def index():
+    if current_user.is_authenticated:
+        if current_user.is_admin:
+            return redirect(url_for('admin.dashboard'))
+        return redirect(url_for('user.user_dashboard'))
     return redirect(url_for('auth.login'))
+
 
 # Auth routes
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('admin.dashboard' if current_user.is_admin else 'user.user_dashboard'))
-
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-
-        if not username or not password:
-            flash('Please provide both username and password')
-            return redirect(url_for('auth.login'))
-
         user = User.query.filter_by(username=username).first()
 
-        if not user:
-            flash('Invalid username or password')
-            return redirect(url_for('auth.login'))
-
-        if user.check_password(password):
+        if user and user.check_password(password):
             login_user(user)
-            flash(f'Welcome back, {user.username}!')
-            return redirect(url_for('admin.dashboard' if user.is_admin else 'user.user_dashboard'))
+            # Clear any existing flash messages
+            session.pop('_flashes', None)
+
+            if user.is_admin:
+                return redirect(url_for('admin.dashboard'))
+            return redirect(url_for('user.user_dashboard'))
 
         flash('Invalid username or password')
     return render_template('auth/login.html')
 
+
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('admin.dashboard' if current_user.is_admin else 'user.user_dashboard'))
-
     if request.method == 'POST':
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
 
-        if not username or not email or not password:
-            flash('Please fill in all fields')
+        # Prevent registration with username 'admin'
+        if username.lower() == 'admin':
+            flash('This username is reserved')
             return redirect(url_for('auth.register'))
 
+        # Check if username or email already exists
         if User.query.filter_by(username=username).first():
             flash('Username already exists')
             return redirect(url_for('auth.register'))
-
         if User.query.filter_by(email=email).first():
-            flash('Email already registered')
+            flash('Email already exists')
             return redirect(url_for('auth.register'))
 
-        user = User(username=username, email=email, is_admin=False)
+        # Create new user
+        user = User(username=username, email=email)
         user.set_password(password)
-        db.session.add(user)
+
         try:
+            db.session.add(user)
             db.session.commit()
             flash('Registration successful! Please login.')
             return redirect(url_for('auth.login'))
-        except Exception:
+        except Exception as e:
             db.session.rollback()
-            flash('An error occurred during registration. Please try again.')
+            flash('An error occurred during registration')
             return redirect(url_for('auth.register'))
 
     return render_template('auth/register.html')
+
 
 @auth_bp.route('/logout')
 @login_required
 def logout():
     logout_user()
-    flash('You have been logged out.')
     return redirect(url_for('auth.login'))
 
+
 # Admin routes
-@admin_bp.route('/')
-@admin_bp.route('/dashboard')
-@login_required
-def dashboard():
-    if not current_user.is_admin:
-        flash('Access denied. Admin privileges required.')
-        return redirect(url_for('user.user_dashboard'))
-    
-     # Get all subjects (will show only 3 in template)
-    subjects = Subject.query.all()
-
-    return render_template('admin/dashboard.html', subjects=subjects)
-
 @admin_bp.route('/subjects')
 @login_required
 def subjects():
@@ -109,6 +94,38 @@ def subjects():
         return redirect(url_for('user.user_dashboard'))
     subjects = Subject.query.all()
     return render_template('admin/subjects.html', subjects=subjects)
+
+
+@admin_bp.route('/dashboard')
+@login_required
+def dashboard():
+    if not current_user.is_admin:
+        return redirect(url_for('user.user_dashboard'))
+
+    # Get all subjects (will show only 3 in template)
+    subjects = Subject.query.all()
+    
+    # Get only non-admin users
+    users = User.query.filter_by(is_admin=False).all()
+
+    # Get statistics for admin dashboard
+    stats = {
+        'total_users':
+            User.query.filter_by(is_admin=False).count(),
+        'active_quizzes':
+            Quiz.query.filter(Quiz.start_date <= datetime.utcnow(), Quiz.end_date
+                              >= datetime.utcnow()).count(),
+        'completed_attempts':
+            QuizAttempt.query.count(),
+        'avg_score':
+            db.session.query(func.avg(QuizAttempt.score)).scalar() or 0
+    }
+
+    return render_template('admin/dashboard.html',
+                           subjects=subjects,
+                           stats=stats,
+                           users=users)
+
 
 @admin_bp.route('/subject/add', methods=['GET', 'POST'])
 @login_required
@@ -132,6 +149,7 @@ def add_subject():
 
     return render_template('admin/add_subject.html')
 
+
 @admin_bp.route('/chapter/add/<int:subject_id>', methods=['GET', 'POST'])
 @login_required
 def add_chapter(subject_id):
@@ -144,7 +162,9 @@ def add_chapter(subject_id):
         name = request.form.get('name')
         description = request.form.get('description')
 
-        chapter = Chapter(name=name, description=description, subject_id=subject_id)
+        chapter = Chapter(name=name,
+                          description=description,
+                          subject_id=subject_id)
         try:
             db.session.add(chapter)
             db.session.commit()
@@ -165,6 +185,7 @@ def view_subject(subject_id):
     subject = Subject.query.get_or_404(subject_id)
     return render_template('admin/view_subject.html', subject=subject)
 
+
 @admin_bp.route('/subject/edit/<int:subject_id>', methods=['GET', 'POST'])
 @login_required
 def edit_subject(subject_id):
@@ -179,12 +200,14 @@ def edit_subject(subject_id):
         try:
             db.session.commit()
             flash('Subject updated successfully!', 'success')
-            return redirect(url_for('admin.view_subject', subject_id=subject.id))
+            return redirect(
+                url_for('admin.view_subject', subject_id=subject.id))
         except Exception as e:
             db.session.rollback()
             flash('Error updating subject', 'error')
 
     return render_template('admin/edit_subject.html', subject=subject)
+
 
 @admin_bp.route('/chapter/<int:chapter_id>')
 @login_required
@@ -193,6 +216,7 @@ def view_chapter(chapter_id):
         return redirect(url_for('user.user_dashboard'))
     chapter = Chapter.query.get_or_404(chapter_id)
     return render_template('admin/view_chapter.html', chapter=chapter)
+
 
 @admin_bp.route('/chapter/edit/<int:chapter_id>', methods=['GET', 'POST'])
 @login_required
@@ -208,12 +232,14 @@ def edit_chapter(chapter_id):
         try:
             db.session.commit()
             flash('Chapter updated successfully!', 'success')
-            return redirect(url_for('admin.view_chapter', chapter_id=chapter.id))
+            return redirect(
+                url_for('admin.view_chapter', chapter_id=chapter.id))
         except Exception as e:
             db.session.rollback()
             flash('Error updating chapter', 'error')
 
     return render_template('admin/edit_chapter.html', chapter=chapter)
+
 
 @admin_bp.route('/subject/delete/<int:subject_id>', methods=['POST'])
 @login_required
@@ -232,6 +258,7 @@ def delete_subject(subject_id):
         flash(f'Error deleting subject: {str(e)}')
         return 'Error deleting subject', 500
 
+
 @admin_bp.route('/chapter/delete/<int:chapter_id>', methods=['POST'])
 @login_required
 def delete_chapter(chapter_id):
@@ -249,6 +276,7 @@ def delete_chapter(chapter_id):
         flash(f'Error deleting chapter: {str(e)}')
         return 'Error deleting chapter', 500
 
+
 @admin_bp.route('/quiz/manage/<int:chapter_id>')
 @login_required
 def manage_quiz(chapter_id):
@@ -256,7 +284,11 @@ def manage_quiz(chapter_id):
         return redirect(url_for('user.user_dashboard'))
     chapter = Chapter.query.get_or_404(chapter_id)
     current_time = datetime.utcnow()
-    return render_template('admin/quiz_management.html', chapter=chapter, current_time=current_time, timedelta=timedelta)
+    return render_template('admin/quiz_management.html',
+                         chapter=chapter,
+                         current_time=current_time,
+                         timedelta=timedelta)
+
 
 @admin_bp.route('/quiz/add/<int:chapter_id>', methods=['POST'])
 @login_required
@@ -271,6 +303,9 @@ def add_quiz(chapter_id):
             start_datetime = datetime.strptime(request.form.get('start_datetime'), '%Y-%m-%dT%H:%M')
             end_datetime = datetime.strptime(request.form.get('end_datetime'), '%Y-%m-%dT%H:%M')
             duration = int(request.form.get('duration'))
+
+            # Debug output
+            print(f"DEBUG: Adding quiz with times - Start: {start_datetime}, End: {end_datetime}")
 
             # Create quiz
             quiz = Quiz(
@@ -317,6 +352,7 @@ def add_quiz(chapter_id):
 
         return redirect(url_for('admin.manage_quiz', chapter_id=chapter_id))
 
+
 @admin_bp.route('/quiz/edit/<int:quiz_id>')
 @login_required
 def edit_quiz(quiz_id):
@@ -324,6 +360,7 @@ def edit_quiz(quiz_id):
         return redirect(url_for('user.user_dashboard'))
     quiz = Quiz.query.get_or_404(quiz_id)
     return render_template('admin/edit_quiz.html', quiz=quiz)
+
 
 @admin_bp.route('/quiz/update/<int:quiz_id>', methods=['POST'])
 @login_required
@@ -336,13 +373,9 @@ def update_quiz(quiz_id):
     try:
         # Update quiz details
         quiz.title = request.form.get('title')
-        start_date = datetime.strptime(request.form.get('start_date'),
-                                       '%Y-%m-%d')
+        quiz.start_date = datetime.strptime(request.form.get('start_datetime'), '%Y-%m-%dT%H:%M')
+        quiz.end_date = datetime.strptime(request.form.get('end_datetime'), '%Y-%m-%dT%H:%M')
         quiz.duration = int(request.form.get('duration'))
-
-        # Set start time to beginning of day and end time to end of day
-        quiz.start_date = start_date.replace(hour=0, minute=0, second=0)
-        quiz.end_date = start_date.replace(hour=23, minute=59, second=59)
 
         # Process questions
         questions_data = {}
@@ -352,8 +385,7 @@ def update_quiz(quiz_id):
         for key, value in request.form.items():
             if key.startswith('questions['):
                 parts = key.replace('questions[', '').replace(']', ' ').split()
-                idx, field = parts[0], parts[1].replace('[',
-                                                        '').replace(']', '')
+                idx, field = parts[0], parts[1].replace('[', '').replace(']', '')
 
                 if idx not in questions_data:
                     questions_data[idx] = {}
@@ -373,13 +405,15 @@ def update_quiz(quiz_id):
                         question.correct_answer = q_data['correct']
                         existing_question_ids.add(question.id)
                 else:  # New question
-                    question = Question(quiz_id=quiz.id,
-                                        question_text=q_data['text'],
-                                        option_a=q_data['option_a'],
-                                        option_b=q_data['option_b'],
-                                        option_c=q_data['option_c'],
-                                        option_d=q_data['option_d'],
-                                        correct_answer=q_data['correct'])
+                    question = Question(
+                        quiz_id=quiz.id,
+                        question_text=q_data['text'],
+                        option_a=q_data['option_a'],
+                        option_b=q_data['option_b'],
+                        option_c=q_data['option_c'],
+                        option_d=q_data['option_d'],
+                        correct_answer=q_data['correct']
+                    )
                     db.session.add(question)
 
         db.session.commit()
@@ -408,7 +442,9 @@ def delete_quiz(quiz_id):
         db.session.rollback()
         flash(f'Error deleting quiz: {str(e)}')
         return 'Error deleting quiz', 500
-    
+
+
+# Admin Search Route
 @admin_bp.route('/search')
 @login_required
 def admin_search():
@@ -443,41 +479,47 @@ def admin_search():
                            quizzes=quizzes,
                            questions=questions)
 
+
 # User routes
-@user_bp.route('/')
 @user_bp.route('/dashboard')
 @login_required
 def user_dashboard():
     subjects = Subject.query.all()
     current_time = datetime.utcnow()
+    current_ts = current_time.timestamp()
 
-    # Debug output for data structure
-    print("DEBUG: Current time:", current_time)
-    print("DEBUG: Subjects loaded:", len(subjects))
+    print(f"DEBUG: Current time (UTC): {current_time}")
+    print(f"DEBUG: Current timestamp: {current_ts}")
 
-    # Count active quizzes for each subject and chapter
-    total_active_quizzes = 0
+    # Pre-process quiz status
+    active_quizzes = []
+    past_quizzes = []
+
     for subject in subjects:
-        print(f"\nDEBUG: Subject: {subject.name}")
         for chapter in subject.chapters:
-            active_quizzes = []
             for quiz in chapter.quizzes:
-                print(f"DEBUG: Checking quiz: {quiz.title}")
-                print(f"DEBUG: Quiz start: {quiz.start_date}, Quiz end: {quiz.end_date}, Current: {current_time}")
-                # Ensure proper datetime comparison using timestamps
-                if quiz.start_date <= current_time and quiz.end_date >= current_time:
+                quiz_start_ts = quiz.start_date.timestamp()
+                quiz_end_ts = quiz.end_date.timestamp()
+
+                print(f"\nDEBUG: Checking quiz: {quiz.title}")
+                print(f"DEBUG: Quiz start time: {quiz.start_date} (TS: {quiz_start_ts})")
+                print(f"DEBUG: Quiz end time: {quiz.end_date} (TS: {quiz_end_ts})")
+                print(f"DEBUG: Current time: {current_time} (TS: {current_ts})")
+
+                # Check if quiz is active (started but not ended) - strictly using timestamp comparison
+                is_active = quiz_start_ts <= current_ts and quiz_end_ts > current_ts
+                print(f"DEBUG: Is active? {is_active}")
+                print(f"DEBUG: Start check: {quiz_start_ts <= current_ts}")
+                print(f"DEBUG: End check: {quiz_end_ts > current_ts}")
+
+                if is_active:
                     active_quizzes.append(quiz)
-                    total_active_quizzes += 1
                     print(f"DEBUG: Quiz {quiz.title} is ACTIVE")
+                elif quiz_end_ts <= current_ts:
+                    past_quizzes.append(quiz)
+                    print(f"DEBUG: Quiz {quiz.title} is PAST")
                 else:
                     print(f"DEBUG: Quiz {quiz.title} is NOT active")
-
-            print(f"DEBUG: Chapter {chapter.name} has {len(active_quizzes)} active quizzes")
-            for quiz in active_quizzes:
-                print(f"DEBUG: Active quiz found - {quiz.title}")
-                print(f"DEBUG: Start: {quiz.start_date}, End: {quiz.end_date}")
-
-    print(f"\nDEBUG: Total active quizzes across all subjects: {total_active_quizzes}")
 
     # Get only 3 recent attempts
     recent_attempts = QuizAttempt.query.filter_by(user_id=current_user.id) \
@@ -485,9 +527,11 @@ def user_dashboard():
         .limit(3).all()
 
     return render_template('user/dashboard.html',
-                         subjects=subjects,
-                         attempts=recent_attempts,
-                         current_time=current_time)
+                        subjects=subjects,
+                        active_quizzes=active_quizzes,
+                        past_quizzes=past_quizzes,
+                        attempts=recent_attempts,
+                        current_time=current_time)
 
 
 # Add new route for viewing all attempts
@@ -564,9 +608,12 @@ def view_summary():
 def take_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     current_time = datetime.utcnow()
+    current_ts = current_time.timestamp()
+    quiz_start_ts = quiz.start_date.timestamp()
+    quiz_end_ts = quiz.end_date.timestamp()
 
-    # Check if quiz is available
-    if current_time < quiz.start_date or current_time > quiz.end_date:
+    # Check if quiz is available using timestamp comparison
+    if current_ts < quiz_start_ts or current_ts > quiz_end_ts:
         flash('This quiz is not available at this time.')
         return redirect(url_for('user.user_dashboard'))
 
@@ -578,9 +625,11 @@ def take_quiz(quiz_id):
 def view_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     current_time = datetime.utcnow()
+    current_ts = current_time.timestamp()
+    quiz_end_ts = quiz.end_date.timestamp()
 
-    # Check if quiz has ended
-    if current_time <= quiz.end_date:
+    # Check if quiz has ended using timestamp comparison
+    if current_ts <= quiz_end_ts:
         flash('This quiz is still active and cannot be viewed.')
         return redirect(url_for('user.user_dashboard'))
 
@@ -592,9 +641,12 @@ def view_quiz(quiz_id):
 def submit_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     current_time = datetime.utcnow()
+    current_ts = current_time.timestamp()
+    quiz_start_ts = quiz.start_date.timestamp()
+    quiz_end_ts = quiz.end_date.timestamp()
 
-    # Check if quiz is still available
-    if current_time < quiz.start_date or current_time > quiz.end_date:
+    # Check if quiz is still available using timestamp comparison
+    if current_ts < quiz_start_ts or current_ts > quiz_end_ts:
         flash('This quiz is not available at this time.')
         return redirect(url_for('user.user_dashboard'))
 

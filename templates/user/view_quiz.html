@@ -14,8 +14,8 @@
             <p class="text-muted">
                 Subject: {{ quiz.chapter.subject.name }} > {{ quiz.chapter.name }}<br>
                 Duration: {{ quiz.duration }} minutes<br>
-                Start Date: {{ quiz.start_date.strftime('%Y-%m-%d %H:%M') }}<br>
-                End Date: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+                Start Date: {{ quiz.start_date.strftime('%Y-%m-%d %H:%M') }} UTC<br>
+                End Date: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }} UTC
             </p>
         </div>
 

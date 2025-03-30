@@ -21,7 +21,7 @@
                                     <small class="text-muted">
                                         From: {{ quiz.chapter.subject.name }} > {{ quiz.chapter.name }}<br>
                                         Duration: {{ quiz.duration }} minutes<br>
-                                        End: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+                                        End: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }} UTC
                                     </small>
                                 </div>
                                 <a href="{{ url_for('user.take_quiz', quiz_id=quiz.id) }}"
@@ -53,7 +53,7 @@
                                     <h6 class="mb-1">{{ quiz.title }}</h6>
                                     <small class="text-muted">
                                         From: {{ quiz.chapter.subject.name }} > {{ quiz.chapter.name }}<br>
-                                        Ended: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }}
+                                        Ended: {{ quiz.end_date.strftime('%Y-%m-%d %H:%M') }} UTC
                                     </small>
                                 </div>
                                 <a href="{{ url_for('user.view_quiz', quiz_id=quiz.id) }}"
@@ -97,7 +97,7 @@
                     <div class="list-group-item">
                         <h6 class="mb-1">{{ attempt.quiz.title }}</h6>
                         <p class="mb-1">Score: {{ attempt.score }}/{{ attempt.quiz.questions|length }}</p>
-                        <small class="text-muted">{{ attempt.completed_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        <small class="text-muted">{{ attempt.date_attempted.strftime('%Y-%m-%d %H:%M') }} UTC</small>
                     </div>
                     {% endfor %}
                 </div>

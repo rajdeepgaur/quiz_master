@@ -52,11 +52,10 @@ def create_app():
             except Exception:
                 db.session.rollback()
 
-        from routes import auth_bp, admin_bp, user_bp, main_bp
+        from routes import auth_bp, admin_bp, user_bp
         app.register_blueprint(auth_bp)
         app.register_blueprint(admin_bp)
         app.register_blueprint(user_bp)
-        app.register_blueprint(main_bp)
    
 
     return app
